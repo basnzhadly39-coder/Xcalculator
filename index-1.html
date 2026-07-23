@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ماشین حساب</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<style>
+  :root{
+    --bg-0:#08080a;
+    --bg-1:#0f0f12;
+    --key-num:rgba(255,255,255,0.055);
+    --key-num-active:rgba(255,255,255,0.11);
+    --key-util:#9a9aa2;
+    --op:#ff9f43;
+    --op-dim:rgba(255,159,67,0.14);
+    --eq-a:#ff9f43;
+    --eq-b:#ff7a1a;
+    --text-hi:#f5f5f7;
+    --text-expr:#818188;
+    --radius:26px;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html,body{
+    height:100%;
+    margin:0;
+    background:
+      radial-gradient(120% 90% at 50% -10%, var(--bg-1), var(--bg-0) 60%);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    overscroll-behavior:none;
+    user-select:none;
+  }
+
+  .app{
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    max-width:480px;
+    margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 18px);
+  }
+
+  .display-wrap{
+    position:relative;
+    margin: 8px 6px 34px;
+    border-radius: 30px;
+    isolation:isolate;
+  }
+
+  .display-wrap::before{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:32px;
+    padding:2px;
+    background: conic-gradient(from 0deg,
+      #ff6b6b, #ffd166, #6bffb8, #6bd4ff, #a78bfa, #ff6bd6, #ff6b6b);
+    filter: blur(9px) saturate(85%);
+    opacity:0.38;
+    z-index:-1;
+    animation: spin 10s linear infinite;
+  }
+  .display-wrap::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:30px;
+    background: var(--bg-0);
+    z-index:-1;
+  }
+
+  @keyframes spin{
+    to{ transform: rotate(360deg); }
+  }
+
+  .display{
+    position:relative;
+    padding: 26px 22px 20px;
+    text-align:right;
+    direction:ltr;
+    min-height: 132px;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    gap:6px;
+  }
+
+  #expr{
+    font-size: 20px;
+    font-weight:300;
+    color:var(--text-expr);
+    min-height:24px;
+    letter-spacing:0.2px;
+    overflow-wrap:anywhere;
+  }
+
+  #result{
+    font-size: clamp(40px, 12vw, 58px);
+    font-weight:200;
+    color:var(--text-hi);
+    line-height:1.05;
+    letter-spacing:-0.5px;
+    overflow-wrap:anywhere;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  .key{
+    position:relative;
+    border:none;
+    outline:none;
+    background: transparent;
+    color: var(--text-hi);
+    font-size: 27px;
+    font-weight:300;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition: transform .12s cubic-bezier(.32,.72,.35,1), background-color .18s ease, color .18s ease;
+  }
+  .key:active{
+    transform: scale(0.90);
+  }
+
+  .key.num{
+    background: var(--key-num);
+    font-weight:300;
+  }
+  .key.num:active{ background: var(--key-num-active); }
+
+  .key.util{
+    color: var(--key-util);
+    font-size:23px;
+    font-weight:400;
+  }
+  .key.util:active{ background: rgba(255,255,255,0.07); }
+
+  .key.op{
+    color: var(--op);
+    font-size:30px;
+    font-weight:400;
+  }
+  .key.op:active{ background: var(--op-dim); }
+
+  .key.eq{
+    background: linear-gradient(145deg, var(--eq-a), var(--eq-b));
+    color:#1a1200;
+    font-weight:600;
+    box-shadow: 0 6px 18px rgba(255,140,20,0.28);
+  }
+  .key.eq:active{
+    transform: scale(0.90);
+    box-shadow: 0 3px 10px rgba(255,140,20,0.22);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .display-wrap::before{ animation:none; }
+    .key{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="display-wrap">
+    <div class="display">
+      <div id="expr" dir="ltr"></div>
+      <div id="result" dir="ltr">0</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <button class="key util" onclick="clearAll()">AC</button>
+    <button class="key util" onclick="backspace()">⌫</button>
+    <button class="key util" onclick="percent()">%</button>
+    <button class="key op" onclick="addOp('÷')">÷</button>
+
+    <button class="key num" onclick="addNumber('7')">7</button>
+    <button class="key num" onclick="addNumber('8')">8</button>
+    <button class="key num" onclick="addNumber('9')">9</button>
+    <button class="key op" onclick="addOp('×')">×</button>
+
+    <button class="key num" onclick="addNumber('4')">4</button>
+    <button class="key num" onclick="addNumber('5')">5</button>
+    <button class="key num" onclick="addNumber('6')">6</button>
+    <button class="key op" onclick="addOp('−')">−</button>
+
+    <button class="key num" onclick="addNumber('1')">1</button>
+    <button class="key num" onclick="addNumber('2')">2</button>
+    <button class="key num" onclick="addNumber('3')">3</button>
+    <button class="key op" onclick="addOp('+')">+</button>
+
+    <button class="key num" onclick="addNumber('.')">.</button>
+    <button class="key num" onclick="addNumber('0')">0</button>
+    <button class="key num" onclick="toggleSign()">±</button>
+    <button class="key eq" onclick="calculate()">=</button>
+  </div>
+
+</div>
+
+<script>
+const exprEl = document.getElementById('expr');
+const resultEl = document.getElementById('result');
+
+let expression = "";
+let justEvaluated = false;
+
+function render(){
+  exprEl.textContent = expression;
+}
+
+function addNumber(n){
+  if(justEvaluated){
+    expression = "";
+    justEvaluated = false;
+  }
+  if(n === "."){
+    const segment = expression.split(/[÷×−+]/).pop();
+    if(segment.includes(".")) return;
+    if(segment === "") expression += "0";
+  }
+  expression += n;
+  resultEl.textContent = expression || "0";
+  render();
+}
+
+function addOp(op){
+  if(expression === "" ) return;
+  justEvaluated = false;
+  const last = expression.trim().slice(-1);
+  if("÷×−+".includes(last)){
+    expression = expression.slice(0, -1) + op;
+  } else {
+    expression += op;
+  }
+  resultEl.textContent = expression;
+  render();
+}
+
+function toggleSign(){
+  const parts = expression.split(/([÷×−+])/);
+  let last = parts.pop();
+  if(last === "" ) return;
+  if(last.startsWith("(-") && last.endsWith(")")){
+    last = last.slice(2, -1);
+  } else {
+    last = "(-" + last + ")";
+  }
+  expression = parts.join("") + last;
+  resultEl.textContent = expression;
+  render();
+}
+
+function percent(){
+  const match = expression.match(/(\d+\.?\d*)$/);
+  if(!match) return;
+  const num = parseFloat(match[0]) / 100;
+  expression = expression.slice(0, match.index) + num;
+  resultEl.textContent = expression;
+  render();
+}
+
+function backspace(){
+  if(justEvaluated){
+    clearAll();
+    return;
+  }
+  expression = expression.slice(0, -1);
+  resultEl.textContent = expression || "0";
+  render();
+}
+
+function clearAll(){
+  expression = "";
+  justEvaluated = false;
+  resultEl.textContent = "0";
+  render();
+}
+
+function calculate(){
+  if(expression === "") return;
+  const safe = expression
+    .replace(/÷/g, "/")
+    .replace(/×/g, "*")
+    .replace(/−/g, "-");
+
+  let value;
+  try{
+    value = Function('"use strict"; return (' + safe + ')')();
+  } catch(e){
+    value = "خطا";
+  }
+
+  if(value === Infinity || value === -Infinity){
+    resultEl.textContent = "تقسیم بر صفر مجاز نیست";
+  } else if (typeof value === "number" && !Number.isFinite(value)){
+    resultEl.textContent = "خطا";
+  } else {
+    if(typeof value === "number"){
+      value = Math.round(value * 1e10) / 1e10;
+    }
+    resultEl.textContent = value;
+  }
+  exprEl.textContent = expression + " =";
+  expression = String(resultEl.textContent);
+  justEvaluated = true;
+}
+
+window.addEventListener('keydown', (e) => {
+  if(e.key >= '0' && e.key <= '9') addNumber(e.key);
+  else if(e.key === '.') addNumber('.');
+  else if(e.key === '+') addOp('+');
+  else if(e.key === '-') addOp('−');
+  else if(e.key === '*') addOp('×');
+  else if(e.key === '/') addOp('÷');
+  else if(e.key === 'Enter' || e.key === '=') { e.preventDefault(); calculate(); }
+  else if(e.key === 'Backspace') backspace();
+  else if(e.key === 'Escape') clearAll();
+  else if(e.key === '%') percent();
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+
+</body>
+</html>
